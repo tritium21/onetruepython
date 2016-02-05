@@ -114,7 +114,7 @@ def execute(python=sys.executable):
         try:
             res = register_python(python)
             logging.info("Python %s at %s is registered!", res[0], res[1])
-            # return 0
+            return 0
         except WindowsError as e:
             if e.errno == 13:
                 need_admin()
@@ -122,7 +122,7 @@ def execute(python=sys.executable):
                 raise
     except CheckFailure as e:
         logging.exception("Unable to register: %s", e)
-        # return 1
+        return 1
     finally:
         if ctypes.windll.shell32.IsUserAnAdmin():
             # need_admin pops up a new window that disappears instantly.
