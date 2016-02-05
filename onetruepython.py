@@ -15,34 +15,56 @@
 # http://nedbatchelder.com/blog/201007/installing_python_packages_from_windows_installers_into.html
 
 from __future__ import print_function
-import sys
-
-try:
-    from _winreg import OpenKey, CreateKey, SetValue, CloseKey, HKEY_LOCAL_MACHINE, REG_SZ
-except ImportError:
-    from winreg import OpenKey, CreateKey, SetValue, CloseKey, HKEY_LOCAL_MACHINE, REG_SZ
+import argparse
 import ctypes
 import ctypes.wintypes
+import logging
 import os.path
+import subprocess
+import sys
+try:
+    import winreg
+except ImportError:
+    import _winreg as winreg
 
 
-def RegisterPy():
-    version = sys.version[:3]
-    installpath = sys.prefix
+logging.basicConfig(level=logging.INFO)
+
+class CheckFailure(Exception):
+    pass
+
+
+def check_python(python):
+    command = "import sys; print('|'.join([sys.version[:3], sys.prefix]))"
+    if not os.path.exists(python):
+        raise CheckFailure("Path does not exist.")
+    try:
+        args = [python, '-c', command]
+        out = subprocess.check_output(args).strip()
+        if not isinstance(out, str):
+            out  = out.decode('ascii')
+        version, prefix = out.split('|')
+        return version, prefix
+    except subprocess.CalledProcessError:
+        raise CheckFailure("Executable does not appear to be python.")
+
+
+def register_python(python=sys.executable):
+    version, prefix = check_python(python)
 
     regpath = "SOFTWARE\\Python\\Pythoncore\\{0}\\".format(version)
     installkey = "InstallPath"
     pythonkey = "PythonPath"
-    pythonpath = "{0};{0}\\Lib\\;{0}\\DLLs\\".format(installpath)
+    pythonpath = "{0};{0}\\Lib\\;{0}\\DLLs\\".format(prefix)
 
     try:
-        reg = OpenKey(HKEY_LOCAL_MACHINE, regpath)
+        reg = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, regpath)
     except EnvironmentError:
-        reg = CreateKey(HKEY_LOCAL_MACHINE, regpath)
-    SetValue(reg, installkey, REG_SZ, installpath)
-    SetValue(reg, pythonkey, REG_SZ, pythonpath)
-    CloseKey(reg)
-    return version, installpath
+        reg = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, regpath)
+    winreg.SetValue(reg, installkey, winreg.REG_SZ, prefix)
+    winreg.SetValue(reg, pythonkey, winreg.REG_SZ, pythonpath)
+    winreg.CloseKey(reg)
+    return version, prefix
 
 
 class SHELLEXECUTEINFO(ctypes.Structure):
@@ -64,31 +86,58 @@ class SHELLEXECUTEINFO(ctypes.Structure):
         ("hProcess",ctypes.wintypes.HANDLE),
     )
 
+
 def need_admin():
+    argv = ' '.join([os.path.abspath(__file__)] + sys.argv[1:]).strip()
+    print(argv)
+    if not isinstance(argv, bytes):
+        argv = argv.encode('ascii')
+
+    if not isinstance(sys.executable, bytes):
+        exe = sys.executable.encode('ascii')
+    else:
+        exe = sys.executable
+
     ShellExecuteEx = ctypes.windll.shell32.ShellExecuteEx
     ShellExecuteEx.restype = ctypes.wintypes.BOOL
     sei = SHELLEXECUTEINFO()
     sei.cbSize = ctypes.sizeof(sei)
     sei.lpVerb = b"runas"
-    sei.lpFile = bytes(sys.executable, 'ascii')
-    sei.lpParameters = bytes(os.path.abspath(__file__), 'ascii')
+    sei.lpFile = exe
+    sei.lpParameters = argv
     sei.nShow = 1
     ShellExecuteEx(ctypes.byref(sei))
 
 
-if __name__ == "__main__":
+def execute(python=sys.executable):
     try:
         try:
-            res = RegisterPy()
-            print("Python {0} at {1} is registered!".format(res[0], res[1]))
+            res = register_python(python)
+            logging.info("Python %s at %s is registered!", res[0], res[1])
+            return 0
         except WindowsError as e:
             if e.errno == 13:
                 need_admin()
             else:
                 raise
-    except Exception as e:
-        print("Unable to register: {0}".format(e))
+    except CheckFailure as e:
+        logging.exception("Unable to register: %s", e)
+        return 1
     finally:
         if ctypes.windll.shell32.IsUserAnAdmin():
             # need_admin pops up a new window that disappears instantly.
             input("Press any key to continue...")
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description='Register the One True Python')
+    parser.add_argument(
+        '-p', '--python',
+        default=sys.executable,
+        help="The full path to the python.exe to register"
+    )
+    args = parser.parse_args(argv)
+    return execute(args.python)
+
+
+if __name__ == '__main__':
+    sys.exit(main())
