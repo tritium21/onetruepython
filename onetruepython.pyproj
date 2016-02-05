@@ -31,7 +31,6 @@
     <Content Include="README.rst" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="discover_experiment.py" />
     <Compile Include="onetruepython.py" />
   </ItemGroup>
   <PropertyGroup>
