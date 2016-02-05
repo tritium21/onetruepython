@@ -89,7 +89,6 @@ class SHELLEXECUTEINFO(ctypes.Structure):
 
 def need_admin():
     argv = ' '.join([os.path.abspath(__file__)] + sys.argv[1:]).strip()
-    print(argv)
     if not isinstance(argv, bytes):
         argv = argv.encode('ascii')
 
