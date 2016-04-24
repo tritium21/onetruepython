@@ -18,6 +18,7 @@ from __future__ import print_function
 import argparse
 import ctypes
 import ctypes.wintypes
+import errno
 import logging
 import os.path
 import subprocess
@@ -35,6 +36,13 @@ class CheckFailure(Exception):
 
 
 def check_python(python):
+    """
+    Takes the path to something suspected to be a python executable,
+    attempts to evaluate code with it (helpfully, code that gives us
+    information we need anyways), and checks the output.
+
+    Returns the version number and prefix path, raises on failure
+    """
     command = "import sys; print('|'.join([sys.version[:3], sys.prefix]))"
     if not os.path.exists(python):
         raise CheckFailure("Path does not exist.")
@@ -50,6 +58,10 @@ def check_python(python):
 
 
 def register_python(python=sys.executable):
+    """
+    Does the bulk of the work.  Accepts a path to a python executable,
+    and sets it as the system default python.
+    """
     version, prefix = check_python(python)
 
     regpath = "SOFTWARE\\Python\\Pythoncore\\{0}\\".format(version)
@@ -111,11 +123,11 @@ def need_admin():
 def execute(python=sys.executable):
     try:
         try:
-            res = register_python(python)
-            logging.info("Python %s at %s is registered!", res[0], res[1])
+            version, prefix = register_python(python)
+            logging.info("Python %s at %s is registered!", version, prefix)
             return 0
         except WindowsError as e:
-            if e.errno == 13:
+            if e.errno == errno.EACCES:
                 need_admin()
             else:
                 raise
