@@ -137,7 +137,9 @@ def execute(python=sys.executable):
     finally:
         if ctypes.windll.shell32.IsUserAnAdmin():
             # need_admin pops up a new window that disappears instantly.
-            input("Press any key to continue...")
+            import sys
+            input_function = raw_input if sys.version_info[0] < 3 else input
+            input_function("Press any key to continue...")
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Register the One True Python')
