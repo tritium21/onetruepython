@@ -20,6 +20,7 @@ import ctypes
 import ctypes.wintypes
 import errno
 import logging
+import msvcrt
 import os.path
 import subprocess
 import sys
@@ -137,7 +138,8 @@ def execute(python=sys.executable):
     finally:
         if ctypes.windll.shell32.IsUserAnAdmin():
             # need_admin pops up a new window that disappears instantly.
-            input("Press any key to continue...")
+            print("Press any key to continue...", end='')
+            msvcrt.getch()
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Register the One True Python')
