@@ -1,3 +1,12 @@
+You Don't Need This Anymore
+===========================
+
+This is from a time when people actually distributed python libraries with EXE
+installers.  This doesn't happen anymore, everyone uses wheels now, and have for
+a few years.  This repo remains available if you are doing archeology and still
+need to support an ancient ecosystem, but I stopped testing it with new Pythons
+years ago.
+
 OneTruePython
 =============
 
